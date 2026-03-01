@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { authCodes, sessions, MEMBERS } from "@/lib/store";
+import { authCodes, sessions, MEMBERS, PROVIDERS } from "@/lib/store";
 import { v4 as uuid } from "uuid";
 
 export async function POST(req: NextRequest) {
@@ -22,12 +22,16 @@ export async function POST(req: NextRequest) {
 
   authCodes.delete(key);
 
+  const isProvider = key.startsWith("PRV");
+  const record = isProvider ? PROVIDERS[key] : MEMBERS[key];
+
   const sessionId = uuid();
-  const member = MEMBERS[key];
   sessions.set(sessionId, {
-    memberId: key,
+    userId: key,
     email: stored.email,
-    memberName: member?.name || key,
+    displayName: record?.name || key,
+    role: isProvider ? "provider" : "member",
+    providerNpi: isProvider ? PROVIDERS[key]?.npi : undefined,
   });
 
   const res = NextResponse.json({ success: true });
@@ -35,7 +39,7 @@ export async function POST(req: NextRequest) {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     sameSite: "lax",
-    maxAge: 60 * 60 * 4, // 4 hours
+    maxAge: 60 * 60 * 4,
     path: "/",
   });
 

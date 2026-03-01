@@ -81,16 +81,16 @@ export default function LoginPage() {
           {step === "login" ? (
             <>
               <h2 className="text-lg font-semibold text-slate-900 mb-1">Sign In</h2>
-              <p className="text-sm text-slate-500 mb-6">Enter your Member ID and email to receive a verification code.</p>
+              <p className="text-sm text-slate-500 mb-6">Enter your Member or Provider ID and email to receive a verification code.</p>
 
               <form onSubmit={handleLogin} className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Member ID</label>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Member / Provider ID</label>
                   <input
                     type="text"
                     value={memberId}
                     onChange={(e) => setMemberId(e.target.value)}
-                    placeholder="e.g. MBR001"
+                    placeholder="e.g. MBR001 or PRV001"
                     className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm"
                     required
                   />
@@ -120,9 +120,15 @@ export default function LoginPage() {
                 </button>
               </form>
 
-              <div className="mt-6 p-3 bg-slate-50 rounded-lg">
-                <p className="text-xs text-slate-500 font-medium mb-1">Demo Member IDs:</p>
-                <p className="text-xs text-slate-400">MBR001 (John Smith) &middot; MBR002 (Jane Doe) &middot; MBR003 (Robert Johnson)</p>
+              <div className="mt-6 p-3 bg-slate-50 rounded-lg space-y-2">
+                <div>
+                  <p className="text-xs text-slate-500 font-medium mb-1">Demo Member IDs:</p>
+                  <p className="text-xs text-slate-400">MBR001 (John Smith) &middot; MBR002 (Jane Doe) &middot; MBR003 (Robert Johnson)</p>
+                </div>
+                <div>
+                  <p className="text-xs text-slate-500 font-medium mb-1">Demo Provider IDs:</p>
+                  <p className="text-xs text-slate-400">PRV001 (Dr. Chen) &middot; PRV002 (Dr. Park) &middot; PRV003 (Dr. Rodriguez)</p>
+                </div>
               </div>
             </>
           ) : (

@@ -1,9 +1,11 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import { useSession } from "../layout";
 
 interface PriorAuth {
   id: string;
+  memberId: string;
   patientName: string;
   diagnosisCode: string;
   diagnosisDescription: string;
@@ -26,6 +28,8 @@ const STATUS_CONFIG: Record<string, { label: string; color: string; bg: string }
 };
 
 export default function StatusPage() {
+  const session = useSession();
+  const isProvider = session?.role === "provider";
   const [auths, setAuths] = useState<PriorAuth[]>([]);
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<string | null>(null);
@@ -44,10 +48,19 @@ export default function StatusPage() {
 
   useEffect(() => {
     fetchAuths();
-    // Poll every 5 seconds to show status changes
     const interval = setInterval(fetchAuths, 5000);
     return () => clearInterval(interval);
   }, [fetchAuths]);
+
+  useEffect(() => {
+    if (!auths.length) {
+      setSelected(null);
+      return;
+    }
+    if (!selected || !auths.some((a) => a.id === selected)) {
+      setSelected(auths[0].id);
+    }
+  }, [auths, selected]);
 
   const selectedAuth = auths.find((a) => a.id === selected);
 
@@ -55,8 +68,12 @@ export default function StatusPage() {
     <div>
       <div className="mb-8 flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Claim Status</h1>
-          <p className="text-slate-500 mt-1">Track your prior authorization requests. Statuses update automatically.</p>
+          <h1 className="text-2xl font-bold text-slate-900">{isProvider ? "All Authorizations" : "Claim Status"}</h1>
+          <p className="text-slate-500 mt-1">
+            {isProvider
+              ? "Track prior authorization requests across all members. Statuses update automatically."
+              : "Track your prior authorization requests. Statuses update automatically."}
+          </p>
         </div>
         <button
           onClick={fetchAuths}
@@ -83,43 +100,81 @@ export default function StatusPage() {
         </div>
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* List */}
-          <div className="lg:col-span-2 space-y-3">
-            {auths.map((auth) => {
-              const cfg = STATUS_CONFIG[auth.status] || STATUS_CONFIG.submitted;
-              return (
-                <button
-                  key={auth.id}
-                  onClick={() => setSelected(auth.id)}
-                  className={`w-full text-left bg-white rounded-xl border p-5 hover:shadow-md transition ${
-                    selected === auth.id ? "border-blue-400 shadow-md" : "border-slate-200"
-                  }`}
-                >
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className="font-mono text-sm font-bold text-slate-900">{auth.id}</span>
-                        {auth.urgency === "urgent" && (
-                          <span className="text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded font-medium">URGENT</span>
-                        )}
+          <div className="lg:col-span-2">
+            {isProvider ? (
+              <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-slate-100 bg-slate-50">
+                      <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase">Auth ID</th>
+                      <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase">Member Name</th>
+                      <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase">Member ID</th>
+                      <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase">Procedure</th>
+                      <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {auths.map((auth) => {
+                      const cfg = STATUS_CONFIG[auth.status] || STATUS_CONFIG.submitted;
+                      return (
+                        <tr
+                          key={auth.id}
+                          onClick={() => setSelected(auth.id)}
+                          className={`border-b border-slate-50 last:border-0 cursor-pointer ${selected === auth.id ? "bg-blue-50" : "hover:bg-slate-50"}`}
+                        >
+                          <td className="px-4 py-3 font-mono font-medium text-slate-900">{auth.id}</td>
+                          <td className="px-4 py-3 text-slate-900">{auth.patientName}</td>
+                          <td className="px-4 py-3 text-slate-500">{auth.memberId}</td>
+                          <td className="px-4 py-3 text-slate-600 truncate max-w-[240px]">{auth.procedureCode} - {auth.procedureDescription}</td>
+                          <td className="px-4 py-3">
+                            <span className={`text-xs font-semibold px-2 py-1 rounded-lg border ${cfg.bg} ${cfg.color}`}>
+                              {cfg.label}
+                            </span>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {auths.map((auth) => {
+                  const cfg = STATUS_CONFIG[auth.status] || STATUS_CONFIG.submitted;
+                  return (
+                    <button
+                      key={auth.id}
+                      onClick={() => setSelected(auth.id)}
+                      className={`w-full text-left bg-white rounded-xl border p-5 hover:shadow-md transition ${
+                        selected === auth.id ? "border-blue-400 shadow-md" : "border-slate-200"
+                      }`}
+                    >
+                      <div className="flex items-start justify-between gap-4">
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="font-mono text-sm font-bold text-slate-900">{auth.id}</span>
+                            {auth.urgency === "urgent" && (
+                              <span className="text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded font-medium">URGENT</span>
+                            )}
+                          </div>
+                          <p className="text-sm text-slate-600">{auth.procedureCode} - {auth.procedureDescription}</p>
+                          <p className="text-xs text-slate-400 mt-1">{auth.diagnosisCode} {auth.diagnosisDescription} &middot; {auth.providerName}</p>
+                        </div>
+                        <span className={`shrink-0 text-xs font-semibold px-3 py-1.5 rounded-lg border ${cfg.bg} ${cfg.color}`}>
+                          {cfg.label}
+                        </span>
                       </div>
-                      <p className="text-sm text-slate-600">{auth.procedureCode} — {auth.procedureDescription}</p>
-                      <p className="text-xs text-slate-400 mt-1">{auth.diagnosisCode} {auth.diagnosisDescription} &middot; {auth.providerName}</p>
-                    </div>
-                    <span className={`shrink-0 text-xs font-semibold px-3 py-1.5 rounded-lg border ${cfg.bg} ${cfg.color}`}>
-                      {cfg.label}
-                    </span>
-                  </div>
-                  <div className="flex gap-4 mt-3 text-xs text-slate-400">
-                    <span>Submitted: {new Date(auth.submittedAt).toLocaleDateString()}</span>
-                    <span>Updated: {new Date(auth.updatedAt).toLocaleDateString()}</span>
-                  </div>
-                </button>
-              );
-            })}
+                      <div className="flex gap-4 mt-3 text-xs text-slate-400">
+                        <span>Submitted: {new Date(auth.submittedAt).toLocaleDateString()}</span>
+                        <span>Updated: {new Date(auth.updatedAt).toLocaleDateString()}</span>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
           </div>
 
-          {/* Detail Panel */}
           <div className="lg:col-span-1">
             {selectedAuth ? (
               <div className="bg-white rounded-xl border border-slate-200 p-6 sticky top-8">
@@ -127,8 +182,9 @@ export default function StatusPage() {
 
                 <div className="space-y-3 mb-6">
                   <DetailRow label="Patient" value={selectedAuth.patientName} />
-                  <DetailRow label="Procedure" value={`${selectedAuth.procedureCode} — ${selectedAuth.procedureDescription}`} />
-                  <DetailRow label="Diagnosis" value={`${selectedAuth.diagnosisCode} — ${selectedAuth.diagnosisDescription}`} />
+                  <DetailRow label="Member ID" value={selectedAuth.memberId} />
+                  <DetailRow label="Procedure" value={`${selectedAuth.procedureCode} - ${selectedAuth.procedureDescription}`} />
+                  <DetailRow label="Diagnosis" value={`${selectedAuth.diagnosisCode} - ${selectedAuth.diagnosisDescription}`} />
                   <DetailRow label="Provider" value={selectedAuth.providerName} />
                   <DetailRow label="Urgency" value={selectedAuth.urgency} />
                 </div>

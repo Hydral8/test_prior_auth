@@ -12,13 +12,14 @@ export async function GET(req: NextRequest) {
 
   // Simulate status progression — randomly advance statuses
   for (const [, pa] of priorAuths) {
-    if (pa.memberId === session.memberId) {
+    if (session.role === "provider" || pa.memberId === session.userId) {
       simulateStatusChange(pa);
     }
   }
 
+  // Providers see all auths, members see only their own
   const auths = Array.from(priorAuths.values())
-    .filter((a) => a.memberId === session.memberId)
+    .filter((a) => session.role === "provider" || a.memberId === session.userId)
     .sort((a, b) => b.submittedAt - a.submittedAt);
 
   return NextResponse.json({ auths });
@@ -32,15 +33,24 @@ export async function POST(req: NextRequest) {
 
   const session = sessions.get(sessionId)!;
   const body = await req.json();
-  const member = MEMBERS[session.memberId];
+
+  // Providers can specify a memberId; members always use their own
+  const memberId = session.role === "provider" && body.memberId
+    ? body.memberId.toUpperCase()
+    : session.userId;
+
+  const member = MEMBERS[memberId];
+  if (!member) {
+    return NextResponse.json({ error: "Member not found" }, { status: 404 });
+  }
 
   const id = `PA-${new Date().getFullYear()}-${String(priorAuths.size + 1).padStart(4, "0")}`;
   const now = Date.now();
 
   const pa: PriorAuth = {
     id,
-    memberId: session.memberId,
-    patientName: member?.name || session.memberName,
+    memberId,
+    patientName: member.name,
     dateOfBirth: body.dateOfBirth || "",
     diagnosisCode: body.diagnosisCode || "",
     diagnosisDescription: body.diagnosisDescription || "",
@@ -65,8 +75,7 @@ export async function POST(req: NextRequest) {
 }
 
 function simulateStatusChange(pa: PriorAuth) {
-  // Only advance if enough time has "passed" (simulate with random chance)
-  if (Math.random() > 0.3) return; // 30% chance of status change per check
+  if (Math.random() > 0.3) return;
 
   const transitions: Record<string, string[]> = {
     submitted: ["under_review"],

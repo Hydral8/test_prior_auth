@@ -1,11 +1,24 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useEffect } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useSession } from "../layout";
+
+interface MemberOption {
+  memberId: string;
+  name: string;
+  plan: string;
+}
 
 export default function SubmitPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const session = useSession();
+  const isProvider = session?.role === "provider";
+
   const [loading, setLoading] = useState(false);
+  const [members, setMembers] = useState<MemberOption[]>([]);
+  const [selectedMember, setSelectedMember] = useState(searchParams.get("memberId") || "");
   const [form, setForm] = useState({
     dateOfBirth: "",
     diagnosisCode: "",
@@ -19,6 +32,21 @@ export default function SubmitPage() {
   });
   const [files, setFiles] = useState<File[]>([]);
   const [success, setSuccess] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (isProvider) {
+      fetch("/api/members").then((r) => r.json()).then((d) => setMembers(d.members || []));
+    }
+  }, [isProvider]);
+
+  useEffect(() => {
+    if (!isProvider || !session) return;
+    setForm((prev) => ({
+      ...prev,
+      providerName: session.displayName || prev.providerName,
+      providerNpi: session.providerNpi || prev.providerNpi,
+    }));
+  }, [isProvider, session]);
 
   function update(field: string, value: string) {
     setForm((prev) => ({ ...prev, [field]: value }));
@@ -34,6 +62,7 @@ export default function SubmitPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           ...form,
+          ...(isProvider && selectedMember ? { memberId: selectedMember } : {}),
           attachments: files.map((f) => f.name),
         }),
       });
@@ -68,7 +97,7 @@ export default function SubmitPage() {
               View Status
             </button>
             <button
-              onClick={() => { setSuccess(null); setForm({ dateOfBirth: "", diagnosisCode: "", diagnosisDescription: "", procedureCode: "", procedureDescription: "", providerName: "", providerNpi: "", urgency: "routine", notes: "" }); setFiles([]); }}
+              onClick={() => { setSuccess(null); setForm({ dateOfBirth: "", diagnosisCode: "", diagnosisDescription: "", procedureCode: "", procedureDescription: "", providerName: "", providerNpi: "", urgency: "routine", notes: "" }); setFiles([]); setSelectedMember(""); }}
               className="bg-slate-100 text-slate-700 px-6 py-2.5 rounded-lg font-medium hover:bg-slate-200 transition text-sm"
             >
               Submit Another
@@ -83,10 +112,33 @@ export default function SubmitPage() {
     <div>
       <div className="mb-8">
         <h1 className="text-2xl font-bold text-slate-900">Submit Prior Authorization</h1>
-        <p className="text-slate-500 mt-1">Complete the form below to submit a new prior authorization request.</p>
+        <p className="text-slate-500 mt-1">
+          {isProvider
+            ? "Submit a prior authorization request on behalf of a member."
+            : "Complete the form below to submit a new prior authorization request."}
+        </p>
       </div>
 
       <form onSubmit={handleSubmit} className="max-w-2xl space-y-6">
+        {/* Member selector for providers */}
+        {isProvider && (
+          <Section title="Select Member">
+            <select
+              value={selectedMember}
+              onChange={(e) => setSelectedMember(e.target.value)}
+              required
+              className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm bg-white"
+            >
+              <option value="">Choose a member...</option>
+              {members.map((m) => (
+                <option key={m.memberId} value={m.memberId}>
+                  {m.memberId} — {m.name} ({m.plan})
+                </option>
+              ))}
+            </select>
+          </Section>
+        )}
+
         {/* Patient Info */}
         <Section title="Patient Information">
           <div className="grid grid-cols-2 gap-4">
@@ -113,9 +165,26 @@ export default function SubmitPage() {
         {/* Provider */}
         <Section title="Requesting Provider">
           <div className="grid grid-cols-2 gap-4">
-            <InputField label="Provider Name" value={form.providerName} onChange={(v) => update("providerName", v)} placeholder="e.g. Dr. Sarah Chen" required />
-            <InputField label="NPI" value={form.providerNpi} onChange={(v) => update("providerNpi", v)} placeholder="10-digit NPI" required />
+            <InputField
+              label="Provider Name"
+              value={form.providerName}
+              onChange={(v) => update("providerName", v)}
+              placeholder="e.g. Dr. Sarah Chen"
+              required
+              readOnly={isProvider}
+            />
+            <InputField
+              label="NPI"
+              value={form.providerNpi}
+              onChange={(v) => update("providerNpi", v)}
+              placeholder="10-digit NPI"
+              required
+              readOnly={isProvider}
+            />
           </div>
+          {isProvider && (
+            <p className="text-xs text-slate-500 mt-3">Provider details are auto-filled from your signed-in profile.</p>
+          )}
         </Section>
 
         {/* Urgency */}
@@ -204,9 +273,15 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 }
 
 function InputField({
-  label, value, onChange, placeholder, type = "text", required = false,
+  label, value, onChange, placeholder, type = "text", required = false, readOnly = false,
 }: {
-  label: string; value: string; onChange: (v: string) => void; placeholder?: string; type?: string; required?: boolean;
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  placeholder?: string;
+  type?: string;
+  required?: boolean;
+  readOnly?: boolean;
 }) {
   return (
     <div>
@@ -217,7 +292,10 @@ function InputField({
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
         required={required}
-        className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm"
+        readOnly={readOnly}
+        className={`w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm ${
+          readOnly ? "bg-slate-100 text-slate-600 cursor-not-allowed" : ""
+        }`}
       />
     </div>
   );

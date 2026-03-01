@@ -8,9 +8,19 @@ export interface AuthCode {
 }
 
 export interface Session {
-  memberId: string;
+  userId: string; // memberId or providerId
   email: string;
-  memberName: string;
+  displayName: string;
+  role: "member" | "provider";
+  providerNpi?: string;
+}
+
+export interface Provider {
+  name: string;
+  email: string;
+  npi: string;
+  specialty: string;
+  organization: string;
 }
 
 export interface PriorAuth {
@@ -73,6 +83,31 @@ export const MEMBERS: Record<string, { name: string; email: string; plan: string
     deductibleMet: "$500",
     outOfPocketMax: "$3,000",
     outOfPocketMet: "$1,800",
+  },
+};
+
+// Simulated provider database
+export const PROVIDERS: Record<string, Provider> = {
+  "PRV001": {
+    name: "Dr. Sarah Chen",
+    email: "",
+    npi: "1234567890",
+    specialty: "Radiology",
+    organization: "Metro Imaging Center",
+  },
+  "PRV002": {
+    name: "Dr. Michael Park",
+    email: "",
+    npi: "0987654321",
+    specialty: "Neurology",
+    organization: "Citywide Neurology Associates",
+  },
+  "PRV003": {
+    name: "Dr. Emily Rodriguez",
+    email: "",
+    npi: "6677889900",
+    specialty: "Cardiology",
+    organization: "Heart & Vascular Institute",
   },
 };
 
