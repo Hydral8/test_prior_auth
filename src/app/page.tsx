@@ -94,6 +94,9 @@ export default function LoginPage() {
                     className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm"
                     required
                   />
+                  <p className="text-xs text-slate-400 mt-1">
+                    Demo provider IDs: PRV001, PRV002, PRV003
+                  </p>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1">Email Address</label>
